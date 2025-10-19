@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fa">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>گالری تصاویر — تصویر از PDF</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#0ea5a4}
+    html,body{height:100%;margin:0;font-family:Tahoma, sans-serif;background:linear-gradient(180deg,#071128 0%, #071022 100%);color:#fff}
+    .wrap{max-width:900px;margin:28px auto;padding:16px}
+    h1{font-size:20px;margin:0 0 12px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+    .card{background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;position:relative;cursor:pointer}
+    .card img{display:block;width:100%;height:240px;object-fit:cover;transition:transform .25s ease}
+    .card:hover img{transform:scale(1.03)}
+    .card .caption{padding:8px;font-size:13px;color:#d9e6ef}
+    .lightbox{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,0.85);z-index:999}
+    .lightbox.open{display:flex}
+    .lightbox .inner{max-width:95vw;max-height:95vh;position:relative}
+    .lightbox img{display:block;max-width:100%;max-height:100%;border-radius:6px;box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+    .close-btn, .link-btn{position:absolute;top:12px;padding:8px 10px;border-radius:6px;background:rgba(255,255,255,0.06);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.04);color:#fff;font-weight:600}
+    .close-btn{right:12px}
+    .link-btn{left:12px}
+    .zoom-controls{position:absolute;right:12px;bottom:12px;display:flex;gap:8px}
+    .zoom-controls button{padding:8px;border-radius:6px;border:none;background:rgba(255,255,255,0.04);color:#fff}
+    .modal-caption{position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,0.35);padding:6px 8px;border-radius:6px;font-size:13px}
+    @media (min-width:900px){ .card img{height:300px} }
+  </style>
+</head>
+<body dir="rtl">
+  <div class="wrap">
+    <h1>تصویر استخراج‌شده از PDF — روی عکس ضربه بزنید تا بزرگ شود</h1>
+    <div class="grid" id="gallery">
+      <div class="card" data-src="pdf_images/page_1.png" data-caption="صفحهٔ ۱ از PDF">
+        <img src="pdf_images/page_1.png" alt="صفحه 1" loading="lazy">
+        <div class="caption">صفحهٔ ۱ — از فایل PDF</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <div class="inner" role="dialog" aria-modal="true">
+      <button class="close-btn" id="closeBtn" aria-label="بستن">بستن ✕</button>
+      <button class="link-btn" id="linkBtn" style="display:none">باز کردن لینک</button>
+      <img id="lightboxImage" src="" alt="تصویر بزرگ">
+      <div class="modal-caption" id="modalCaption" style="display:none"></div>
+      <div class="zoom-controls">
+        <button id="zoomOut">−</button>
+        <button id="zoomIn">＋</button>
+        <button id="resetZoom">⤾</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const gallery = document.getElementById('gallery');
+      const lightbox = document.getElementById('lightbox');
+      const lightboxImage = document.getElementById('lightboxImage');
+      const closeBtn = document.getElementById('closeBtn');
+      const linkBtn = document.getElementById('linkBtn');
+      const modalCaption = document.getElementById('modalCaption');
+      const zoomIn = document.getElementById('zoomIn');
+      const zoomOut = document.getElementById('zoomOut');
+      const resetZoom = document.getElementById('resetZoom');
+      let scale = 1;
+
+      gallery.addEventListener('click', e=>{
+        const card = e.target.closest('.card');
+        if(!card) return;
+        const src = card.dataset.src || card.querySelector('img').src;
+        const caption = card.dataset.caption || '';
+        openLightbox(src, caption);
+      });
+
+      function openLightbox(src, caption){
+        lightboxImage.src = src;
+        lightboxImage.style.transform = 'scale(1)';
+        scale = 1;
+        modalCaption.style.display = caption ? 'block' : 'none';
+        modalCaption.textContent = caption || '';
+        lightbox.classList.add('open');
+        lightbox.setAttribute('aria-hidden','false');
+      }
+
+      closeBtn.addEventListener('click', closeLightbox);
+      lightbox.addEventListener('click', e=>{ if(e.target === lightbox) closeLightbox(); });
+      document.addEventListener('keydown', e=>{ if(e.key === 'Escape') closeLightbox(); });
+
+      function closeLightbox(){
+        lightbox.classList.remove('open');
+        lightbox.setAttribute('aria-hidden','true');
+        lightboxImage.src = '';
+      }
+
+      zoomIn.addEventListener('click', ()=>{
+        scale = Math.min(4, scale + 0.25);
+        lightboxImage.style.transform = `scale(${scale})`;
+      });
+      zoomOut.addEventListener('click', ()=>{
+        scale = Math.max(1, scale - 0.25);
+        lightboxImage.style.transform = `scale(${scale})`;
+      });
+      resetZoom.addEventListener('click', ()=>{ scale = 1; lightboxImage.style.transform = 'scale(1)'; });
+
+      let lastTap = 0;
+      lightboxImage.addEventListener('touchend', (ev)=>{
+        const now = Date.now();
+        if(now - lastTap < 300){
+          if(scale === 1) { scale = 2; lightboxImage.style.transform = `scale(${scale})`; }
+          else { scale = 1; lightboxImage.style.transform = `scale(${scale})`; }
+        }
+        lastTap = now;
+      });
+
+      let isDragging = false, startX=0, startY=0;
+      lightboxImage.addEventListener('pointerdown', e=>{
+        if(scale <= 1) return;
+        isDragging = true; startX = e.clientX; startY = e.clientY;
+        lightboxImage.style.transition = 'none';
+      });
+      window.addEventListener('pointermove', e=>{
+        if(!isDragging) return;
+        const dx = e.clientX - startX; const dy = e.clientY - startY;
+        lightboxImage.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+      });
+      window.addEventListener('pointerup', e=>{ if(isDragging){ isDragging=false; lightboxImage.style.transition='transform .15s ease'; }});
+    })();
+  </script>
+</body>
+</html>
